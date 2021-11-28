@@ -70,7 +70,7 @@ def solve_problems(problems):
 def main():
     print(ex1.ids)
     """Here goes the input you want to check"""
-    problems = [
+    problem_set_1 = [
 
         {
             "map": [['P', 'P', 'P', 'P'],
@@ -125,10 +125,12 @@ def main():
             "clients": {'Alice': {"path": [(0, 1), (1, 1), (1, 0), (0, 0), (2, 2)],
                                   "packages": ('package 1', 'package 2', 'package 3')},
                         'Bob': {"path": [(4, 3), (2, 2), (4, 2), (4, 4)],
-                                "packages": ('package 4', )},
+                                "packages": ('package 4',)},
                         }
         },
+    ]
 
+    problem_set_2 = [
         {
             "map": [['P', 'P', 'P', 'P'],
                     ['P', 'P', 'P', 'P'],
@@ -190,8 +192,106 @@ def main():
             "clients": {'Alice': {"path": [(2, 0), (2, 2)],
                                   "packages": ('package 1', 'package 2')}}
         },
+
     ]
-    solve_problems(problems)
+
+    problem_set_3 = [
+        {
+            "map": [['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'I', 'P', 'P', 'P'],
+                    ['P', 'P', 'I', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'], ],
+            "drones": {'drone 1': (3, 0),
+                       'drone 2': (2, 4)},
+            "packages": {'package 1': (3, 4),
+                         'package 2': (3, 4),
+                         'package 3': (3, 4),
+                         'package 4': (3, 4)},
+            "clients": {'Alice': {"path": [(0, 0), (0, 1), (0, 2), (0, 3), (0, 4)],
+                                  "packages": ('package 1', 'package 2')},
+                        'Bob': {"path": [(2, 3), (3, 3), (3, 2)],
+                                "packages": ('package 3', 'package 4')},
+                        }
+        },
+
+        {
+            "map": [['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'I', 'P', 'P', 'P'],
+                    ['P', 'P', 'I', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'],
+                    ['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'], ],
+            "drones": {'drone 1': (3, 0),
+                       'drone 2': (2, 4)},
+            "packages": {'package 1': (5, 4),
+                         'package 2': (5, 4),
+                         'package 3': (5, 4),
+                         'package 4': (5, 4),
+                         'package 5': (5, 4)},
+            "clients": {'Alice': {"path": [(0, 0), (0, 1), (0, 3), (0, 4)],
+                                  "packages": ('package 1', 'package 2')},
+                        'Bob': {"path": [(2, 3), (3, 3), (3, 2)],
+                                "packages": ('package 3', 'package 4')},
+                        'Charlie': {"path": [(5, 1)],
+                                    "packages": ('package 5',)},
+                        }
+        },
+
+        {
+            "map": [['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'I', 'P', 'P', 'P'],
+                    ['P', 'P', 'I', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'],
+                    ['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'], ],
+            "drones": {'drone 1': (3, 0),
+                       'drone 2': (2, 4),
+                       'drone 3': (5, 0)},
+            "packages": {'package 1': (5, 4),
+                         'package 2': (5, 4),
+                         'package 3': (5, 4),
+                         'package 4': (5, 4),
+                         'package 5': (5, 4)},
+            "clients": {'Alice': {"path": [(0, 0), (0, 1), (0, 3), (0, 4)],
+                                  "packages": ('package 5', 'package 2')},
+                        'Bob': {"path": [(2, 3), (3, 3), (3, 2)],
+                                "packages": ('package 3', 'package 4')},
+                        'Charlie': {"path": [(5, 1)],
+                                    "packages": ('package 1',)},
+                        }
+        },
+
+        {
+            "map": [['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'I', 'P', 'P', 'P'],
+                    ['P', 'P', 'I', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'],
+                    ['P', 'P', 'P', 'P', 'P'],
+                    ['P', 'P', 'P', 'I', 'P'], ],
+            "drones": {'drone 1': (3, 0),
+                       'drone 2': (2, 4)},
+            "packages": {'package 1': (5, 4),
+                         'package 2': (5, 4),
+                         'package 3': (5, 4),
+                         'package 4': (5, 4),
+                         'package 5': (5, 4)},
+            "clients": {'Alice': {"path": [(0, 0), (0, 1), (0, 3), (0, 4)],
+                                  "packages": ('package 1', 'package 2')},
+                        'Bob': {"path": [(2, 3), (3, 3), (3, 2)],
+                                "packages": ('package 3', 'package 4')},
+                        'Charlie': {"path": [(5, 1)],
+                                    "packages": ('package 5',)},
+                        }
+        },
+
+    ]
+
+    print("Solving Set 1: ")
+    solve_problems(problem_set_1)
+    print("Solving Set 2: ")
+    solve_problems(problem_set_2)
+    print("Solving Set 3: ")
+    solve_problems(problem_set_3)
 
 
 if __name__ == '__main__':

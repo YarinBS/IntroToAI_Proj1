@@ -2,9 +2,10 @@ import math
 import search
 import utils
 import json
+from random import sample
 from itertools import product
 
-ids = ["XXXXXXXXX", "XXXXXXXXX"]
+ids = ["206230021", "206563694"]
 
 
 class DroneProblem(search.Problem):
@@ -18,41 +19,29 @@ class DroneProblem(search.Problem):
         # Saving the map outside the initial state and removing it from initial
         self.map = initial['map']
         del initial['map']
-        self.turn = 0
-
-        # self.packages_dict = {}
-        # for client in initial['clients'].keys():
-        #     for p in initial['clients'][client]['packages']:
-        #         self.packages_dict[p] = client
+        self.turn = 0  # Saving the current turn to follow the clients' location
 
         # This section removes any unwanted packages from the initial state
         total_packages = list(initial["packages"].keys())
         wanted_packages = []
         for client in initial["clients"].keys():
             wanted_packages += initial["clients"][client]['packages']
-        unwanted_packages = [item for item in total_packages if
-                             item not in wanted_packages]  # Check if the subtraction is correct
+        unwanted_packages = [item for item in total_packages if item not in wanted_packages]
         for unwanted in unwanted_packages:
             initial["packages"].pop(unwanted)
+
+        # This dictionary holds each package as a key and its value is its client
+        self.packages_dict = {}
+        for client in initial['clients'].keys():
+            for p in initial['clients'][client]['packages']:
+                self.packages_dict[p] = client
 
         # This section changes the `drones` part of the initial state:
         # Now holding its current location (2-tuple), and a list of size 2 that keeps the packages names
         # held by the drone
-        # all_drones = initial["drones"]  # the dictionary that contain all the drones
-        # for drone in all_drones:
-        #     location = initial["drones"][drone]
-        #     initial["drones"][drone] = {'location': location, 'current_packages': [None, None]}
         for drone in initial['drones'].keys():
             location = initial["drones"][drone]
             initial["drones"][drone] = {'location': location, 'current_packages': [None, None]}
-
-        # This section changes the `clients` part of the initial state:
-        # Now holding a client's current location (int with range 0-len(path) - 1), its path (list of 2-tuples), and
-        # a tuple with its wanted packages' names
-        # for client in initial["clients"].keys():
-        #     c_path = initial["clients"][client]["path"]
-        #     c_packages = initial["clients"][client]["packages"]
-        #     initial["clients"][client] = {'location': 0, 'path': c_path, 'packages': c_packages}
 
         # This section changes the `packages` part of the initial state:
         # Now holding a package's location (2-tuple), and its 'OnGround' state, which takes the values 'OnGround' if the
@@ -64,15 +53,12 @@ class DroneProblem(search.Problem):
         initial = json.dumps(initial, sort_keys=True)
         search.Problem.__init__(self, initial)
 
-        """
-        After running the __init__() function, the `initial` object looks like this:
-        
+        """ After running the __init__() function, the `initial` object looks like this:
         {
         'drones': {drone_name: {location: (2-tuple), current_packages: [list of 2 entries]}},
         'packages': {package_name: {location: (2-tuple), 'onDrone': 'OnGround' or drone_name}},
         'clients': {client_name: {path: [list of locations], packages: (tuple of wanted packages)}}
-        }
-        """
+        } """
 
     def actions(self, state):
         """Returns all the actions that can be executed in the given
@@ -81,24 +67,40 @@ class DroneProblem(search.Problem):
 
         dict_state = json.loads(state)
 
-        # --------------------------
-
-        # Implementing Tomer's actions
         possible_actions = []
         for drone in dict_state['drones'].keys():
             possible_actions_for_drone = []
-            possible_actions_for_drone.extend(self.check_packages_for_single_drone(dict_state, drone))
-            possible_actions_for_drone.extend(self.check_movement_for_single_drone(dict_state, drone))
             possible_actions_for_drone.extend(self.check_clients_for_single_drone(dict_state, drone))
-            possible_actions_for_drone.append(("wait", drone))
+            if possible_actions_for_drone:  # Prioritize delivering
+                possible_actions.append(possible_actions_for_drone)
+                continue
+            possible_actions_for_drone.extend(self.check_packages_for_single_drone(dict_state, drone))
+            if possible_actions_for_drone and not len(dict_state['drones'][drone]['current_packages']):
+                # If can't deliver and the drone holds no packages, prioritize picking up packages
+                possible_actions.append(possible_actions_for_drone)
+                continue
+            possible_actions_for_drone.extend(self.check_movement_for_single_drone(dict_state, drone))
+            # if (not holding stuff and moved closer to package) or (holding stuff and moved closer to client): accept action
+            if sum([bool(item) for item in dict_state['drones'][drone]['current_packages']]) < 2:
+                # Allowing to wait only if the drone is not at full package capacity
+                possible_actions_for_drone.append(("wait", drone))
             possible_actions.append(possible_actions_for_drone)
         all_possible_actions = list(product(*possible_actions))
 
-        # --------------------------
-
         actions_after_pickup_detection = self.detect_multiple_delivers(
             self.detect_multiple_pickups(all_possible_actions))
-        return actions_after_pickup_detection
+
+        # For the big input
+        if len(actions_after_pickup_detection) > 1000:
+            randomed_actions = sample(actions_after_pickup_detection, len(actions_after_pickup_detection) // 1000)
+            important_actions = [ac for ac in randomed_actions if
+                                 ('deliver' in [a[0] for a in ac] or 'pick up' in [a[0] for a in ac])]
+            if len(important_actions):
+                return important_actions
+            else:
+                return randomed_actions
+        else:
+            return actions_after_pickup_detection
 
     def detect_multiple_pickups(self, actions):
         """This function takes a list of actions in the form of [(), (), (), ...]
@@ -109,14 +111,11 @@ class DroneProblem(search.Problem):
             picked_up_packages = set()
             for subaction in actions[i]:
                 if subaction[0] == 'pick up':
-                    if subaction[2] not in picked_up_packages:  # .keys():  # Should be O(n)
-                        # if not picked_up_packages.get(subaction[2]):  #Should be O(1): https://www.quora.com/What-is-the-time-complexity-of-checking-if-a-key-is-in-a-dictionary-in-Python
-                        # picked_up_packages[subaction[2]] = 1
+                    if subaction[2] not in picked_up_packages:
                         picked_up_packages.add(subaction[2])
                     else:
                         remove_list.append(actions[i])
                         break
-        # return list(set(actions) - set(remove_list))
         return [item for item in actions if item not in remove_list]  # Check if this works properly!
 
     def detect_multiple_delivers(self, actions):
@@ -128,14 +127,11 @@ class DroneProblem(search.Problem):
             picked_up_packages = set()
             for subaction in actions[i]:
                 if subaction[0] == 'deliver':
-                    if subaction[2] not in picked_up_packages:  # .keys():  # Should be O(n)
-                        # if not picked_up_packages.get(subaction[3]):  #Should be O(1): https://www.quora.com/What-is-the-time-complexity-of-checking-if-a-key-is-in-a-dictionary-in-Python
-                        #     picked_up_packages[subaction[3]] = 1
+                    if subaction[2] not in picked_up_packages:
                         picked_up_packages.add(subaction[3])
                     else:
                         remove_list.append(actions[i])
                         break
-        # return list(set(actions) - set(remove_list))
         return [item for item in actions if item not in remove_list]  # Check if this works properly!
 
     def result(self, state, action):
@@ -166,39 +162,18 @@ class DroneProblem(search.Problem):
                     state["drones"][a[1]]['current_packages'][1] = None
                 state["packages"].pop(a[3])
 
-        # Moving the clients to the next tile in their path
-        # for c in state['clients'].keys():
-        #     if state['clients'][c]['location'] == len(state['clients'][c]['path']) - 1:
-        #         state['clients'][c]['location'] = 0
-        #     else:
-        #         state['clients'][c]['location'] += 1
-
-        self.turn += 1
-
+        self.turn += 1  # Advance to the next turn, move clients
         return json.dumps(state, sort_keys=True)
 
     def goal_test(self, state):
         """ Given a state, checks if this is the goal state.
          Returns True if it is, False otherwise."""
 
-        """ if there aren't packages, the packages dictionary is empty so the bool value is false, but this is a goal 
-        state so we need to return for it true, this is why we did the opposite."""
         dict_state = json.loads(state)
-        if not dict_state["packages"]:
+        if not dict_state["packages"]:  # If no packages are found in the state, all were delivered
             return True
         else:
             return False
-
-    def manhattan_distance(self, state, package_loc):
-        """This function calculate the manhattan distance of the closest drone for
-         a given package"""
-        min_dist = math.inf
-        for drone in state['drones']:
-            drone_loc = state['drones'][drone]['location']
-            dist = sum(abs(val1 - val2) for val1, val2 in zip(package_loc, drone_loc))
-            if dist < min_dist:
-                min_dist = dist
-        return min_dist
 
     def h(self, node):
         """This is the heuristic. It gets a node (not a state,
@@ -207,23 +182,15 @@ class DroneProblem(search.Problem):
 
         state = json.loads(node.state)
 
-        # This dictionary holds the state of each drone - how many packages he's
-        # going for
+        # This dictionary holds the state of each drone - how many packages he's going for
         # https://stackoverflow.com/questions/3393431/how-to-count-non-null-elements-in-an-iterable/9629842
         drone_state = {}
         for drone in state['drones'].keys():
             drone_state[drone] = 2 - sum(x is not None for x in state['drones'][drone]['current_packages'])
 
-        # This dictionary holds each package as a key and its value is its client
-        packages_dict = {}
-        for client in state['clients'].keys():
-            for p in state['clients'][client]['packages']:
-                packages_dict[p] = client
-
-        # Iterate over each package on the map
-
         heuristic_value = 0
 
+        # Iterate over each package on the map
         for package in state['packages'].keys():
             if state['packages'][package]['onDrone'] == 'onGround':
                 # Finding the closest drone which still has room for a package
@@ -236,14 +203,13 @@ class DroneProblem(search.Problem):
                         if curr_dist < drone_min_dist:
                             drone_min_dist = curr_dist
                             min_drone = drone
-                # Decrement the number of available spots for packages
-                if min_drone:
+                if min_drone:  # Decrement the number of available spots for packages, if drone exists
                     drone_state[min_drone] -= 1
             else:
                 drone_min_dist = 0
 
             client_package_dist = min([utils.distance(state['packages'][package]['location'], loc) for loc in
-                                       state['clients'][packages_dict[package]]['path']])
+                                       state['clients'][self.packages_dict[package]]['path']])
 
             path_dist = drone_min_dist + client_package_dist
             heuristic_value += path_dist
@@ -254,13 +220,12 @@ class DroneProblem(search.Problem):
         """Checks if a drone is in the same tile as a wanted package.
         If so, return an available action for the drone"""
         available_actions = []  # Holds the available 'pick up' actions
-        # for drone in state["drones"].keys():
         drone_location = state['drones'][drone]['location']
         for package in state["packages"].keys():
             package_location = state['packages'][package]['location']
             if (drone_location == package_location) and (None in state['drones'][drone][
                 'current_packages']) and state['packages'][package][
-                'onDrone'] == 'onGround':  # If locations are the same and drone has a free slot
+                'onDrone'] == 'onGround':  # If locations are the same, drone has a free slot and the package is on the ground
                 available_actions.append(("pick up", drone, package))
         return available_actions
 
@@ -268,19 +233,14 @@ class DroneProblem(search.Problem):
         """Checks if a drone can move to neighboring tiles.
         If so, return an available 'move' action for the drone"""
         available_actions = []
-        # for drone in state['drones'].keys():
         corr = state['drones'][drone]['location']
-        # UP
-        if corr[0] != 0 and self.map[corr[0] - 1][corr[1]] == 'P':
+        if corr[0] != 0 and self.map[corr[0] - 1][corr[1]] == 'P':  # UP
             available_actions.append(("move", drone, (corr[0] - 1, corr[1])))
-        # DOWN
-        if corr[0] != (len(self.map) - 1) and self.map[corr[0] + 1][corr[1]] == 'P':
+        if corr[0] != (len(self.map) - 1) and self.map[corr[0] + 1][corr[1]] == 'P':  # DOWN
             available_actions.append(("move", drone, (corr[0] + 1, corr[1])))
-        # LEFT
-        if corr[1] != 0 and self.map[corr[0]][corr[1] - 1] == 'P':
+        if corr[1] != 0 and self.map[corr[0]][corr[1] - 1] == 'P':  # LEFT
             available_actions.append(("move", drone, (corr[0], corr[1] - 1)))
-        # RIGHT
-        if corr[1] != (len(self.map[corr[0]]) - 1) and self.map[corr[0]][corr[1] + 1] == 'P':
+        if corr[1] != (len(self.map[corr[0]]) - 1) and self.map[corr[0]][corr[1] + 1] == 'P':  # RIGHT
             available_actions.append(("move", drone, (corr[0], corr[1] + 1)))
         return available_actions
 
@@ -288,35 +248,15 @@ class DroneProblem(search.Problem):
         """Checks if a drone is in the same tile as a client and holds its wanted package.
         If so, return an available 'deliver' action for the drone"""
         available_actions = []
-        # for drone in state['drones'].keys():
         drone_location = state['drones'][drone]['location']
-        left_package = state['drones'][drone]['current_packages'][0]
-        right_package = state['drones'][drone]['current_packages'][1]
-        if left_package:  # If holding left package
-            client = self.match_package_to_client(state, state['drones'][drone]['current_packages'][0])
-            if client:  # If found the client that wants the left package
-                # client_corr = state['clients'][client]['path'][state["clients"][client]["location"]]
-                client_corr = state['clients'][client]['path'][self.turn % len(state['clients'][client]['path'])]
-                if drone_location == client_corr:
-                    available_actions.append(("deliver", drone, client, left_package))
-        if right_package:  # If holding right package
-            client = self.match_package_to_client(state, state['drones'][drone]['current_packages'][1])
-            if client:  # If found the client that wants the right package
-                # client_corr = state['clients'][client]['path'][state["clients"][client]["location"]]
-                client_corr = state['clients'][client]['path'][self.turn % len(state['clients'][client]['path'])]
-                if drone_location == client_corr:
-                    available_actions.append(("deliver", drone, client, right_package))
+        for p in state['drones'][drone]['current_packages']:
+            if p:
+                client = self.packages_dict[p]
+                if client:  # If found the client that wants the left package
+                    client_loc = state['clients'][client]['path'][self.turn % len(state['clients'][client]['path'])]
+                    if drone_location == client_loc:
+                        available_actions.append(("deliver", drone, client, p))
         return available_actions
-
-    def match_package_to_client(self, state, package):
-        """Looks for the client that requests `package` and returns its name"""
-        for client in state["clients"].keys():
-            if package in state["clients"][client]['packages']:
-                return client
-        # return self.packages_dict.get(package)
-
-    """Feel free to add your own functions
-    (-2, -2, None) means there was a timeout"""
 
 
 def create_drone_problem(game):
