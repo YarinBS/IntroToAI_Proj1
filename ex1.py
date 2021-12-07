@@ -5,7 +5,7 @@ import json
 from random import sample
 from itertools import product
 
-ids = ["206230021", "206563694"]
+ids = ["XXXXXXXXX", "XXXXXXXXX"]
 
 
 class DroneProblem(search.Problem):
